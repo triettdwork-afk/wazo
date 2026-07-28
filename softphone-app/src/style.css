@@ -80,6 +80,7 @@ input::placeholder { color: #a7afa9; }
 .round-button.call { width: 62px; height: 62px; color: #fff; background: #3f8a55; box-shadow: 0 10px 22px rgba(63,138,85,.28); }
 .round-button.call.hangup { background: #c24e47; box-shadow: 0 10px 22px rgba(194,78,71,.24); }
 .incoming-actions { margin-top: 19px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.incoming-actions[hidden] { display: none; }
 .answer-button { height: 46px; border: 0; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; }
 .answer-button.reject { color: #a33f3a; background: #f5e7e5; }
 .answer-button.answer { color: #fff; background: #3f8a55; }
