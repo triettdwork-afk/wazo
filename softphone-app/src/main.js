@@ -155,13 +155,31 @@ function showIncomingCall(callSession) {
 let directlyBoundPhone = null;
 let directlyBoundClient = null;
 
-function bindDirectIncomingEvents() {
+function bindDirectPhoneEvents() {
   const phone = Wazo.Phone.phone;
   if (phone?.on && phone !== directlyBoundPhone) {
     phone.on(Wazo.Phone.ON_CALL_INCOMING, callSession => {
       console.info('Incoming call captured from WebRTC phone', callSession?.getId?.());
       showIncomingCall(callSession);
     });
+
+    [
+      Wazo.Phone.ON_CALL_ENDED,
+      Wazo.Phone.ON_CALL_CANCELED,
+      Wazo.Phone.ON_CALL_REJECTED,
+    ].filter(event => typeof event === 'string').forEach(event => {
+      phone.on(event, callSession => {
+        console.info('Remote call end captured from WebRTC phone', event, callSession?.getId?.());
+        endCall();
+      });
+    });
+
+    if (typeof Wazo.Phone.ON_CALL_FAILED === 'string') {
+      phone.on(Wazo.Phone.ON_CALL_FAILED, (_callSession, error) => {
+        console.info('Call failure captured from WebRTC phone', error);
+        endCall(error);
+      });
+    }
     directlyBoundPhone = phone;
   }
 
@@ -292,7 +310,7 @@ elements.form.addEventListener('submit', async event => {
     const session = await Wazo.Auth.logIn(elements.username.value.trim(), elements.password.value);
     if (!session) throw new Error('Wazo did not return a valid session.');
     await Wazo.Phone.connect({ media: { audio: true, video: false } });
-    bindDirectIncomingEvents();
+    bindDirectPhoneEvents();
     await Wazo.Phone.phone.register();
     state.connected = true;
     state.connecting = false;
