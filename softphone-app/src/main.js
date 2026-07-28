@@ -138,6 +138,20 @@ function setStatus(message, mode = '') {
   elements.callStatus.className = `call-status ${mode}`;
 }
 
+function showIncomingCall(callSession) {
+  if (!callSession) return;
+  const incomingId = callSession.getId?.();
+  if (state.incoming && incomingId && state.call?.getId?.() === incomingId) return;
+  state.call = callSession;
+  state.incoming = true;
+  state.held = false;
+  const caller = callSession.number || callSession.displayName || incomingId || 'Incoming call';
+  elements.dialNumber.textContent = caller;
+  elements.callKicker.textContent = 'Incoming call';
+  setStatus('Answer or reject this call');
+  render();
+}
+
 function render() {
   const hasNumber = elements.dialNumber.textContent !== '—';
   elements.connectionPill.className = `status-pill ${state.connected ? 'online' : 'offline'}`;
@@ -183,14 +197,15 @@ function bindPhoneEvents() {
     render();
   });
 
-  on(Wazo.Phone.ON_CALL_INCOMING, callSession => {
-    state.call = callSession;
-    state.incoming = true;
-    const caller = callSession?.number || callSession?.displayName || callSession?.getId?.() || 'Incoming call';
-    elements.dialNumber.textContent = caller;
-    elements.callKicker.textContent = 'Incoming call';
-    setStatus('Answer or reject this call');
-    render();
+  on(Wazo.Phone.ON_CALL_INCOMING, showIncomingCall);
+  on('client-invite', () => {
+    setTimeout(() => {
+      const callSession = Wazo.Phone.phone?.getIncomingCallSession?.();
+      if (callSession) {
+        console.info('Incoming SIP invite captured', callSession.getId?.());
+        showIncomingCall(callSession);
+      }
+    }, 0);
   });
 
   on(Wazo.Phone.ON_CALL_ACCEPTED, callSession => {
