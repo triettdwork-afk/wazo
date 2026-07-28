@@ -194,6 +194,7 @@ function bindPhoneEvents() {
   });
 
   on(Wazo.Phone.ON_CALL_ENDED, endCall);
+  on(Wazo.Phone.ON_CALL_CANCELED, endCall);
   on(Wazo.Phone.ON_CALL_REJECTED, endCall);
   on(Wazo.Phone.ON_CALL_FAILED, (_call, error) => endCall(error));
   on(Wazo.Phone.ON_CALL_ERROR, error => setStatus(readableError(error), 'error'));
