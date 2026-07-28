@@ -314,8 +314,16 @@ elements.mute.addEventListener('click', () => {
 elements.hold.addEventListener('click', async () => {
   if (!state.call || state.incoming) return;
   try {
-    if (state.held) await Wazo.Phone.unhold(state.call);
-    else await Wazo.Phone.hold(state.call);
+    if (state.held) {
+      await Wazo.Phone.resume(state.call);
+      state.held = false;
+      setStatus('Live call', 'success');
+    } else {
+      await Wazo.Phone.hold(state.call);
+      state.held = true;
+      setStatus('Call on hold');
+    }
+    render();
   } catch (error) {
     setStatus(readableError(error), 'error');
   }
