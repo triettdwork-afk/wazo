@@ -152,6 +152,34 @@ function showIncomingCall(callSession) {
   render();
 }
 
+let directlyBoundPhone = null;
+let directlyBoundClient = null;
+
+function bindDirectIncomingEvents() {
+  const phone = Wazo.Phone.phone;
+  if (phone?.on && phone !== directlyBoundPhone) {
+    phone.on(Wazo.Phone.ON_CALL_INCOMING, callSession => {
+      console.info('Incoming call captured from WebRTC phone', callSession?.getId?.());
+      showIncomingCall(callSession);
+    });
+    directlyBoundPhone = phone;
+  }
+
+  const client = Wazo.Phone.client;
+  if (client?.on && client.INVITE && client !== directlyBoundClient) {
+    client.on(client.INVITE, () => {
+      setTimeout(() => {
+        const callSession = Wazo.Phone.phone?.getIncomingCallSession?.();
+        if (callSession) {
+          console.info('Incoming call captured directly from SIP client', callSession.getId?.());
+          showIncomingCall(callSession);
+        }
+      }, 0);
+    });
+    directlyBoundClient = client;
+  }
+}
+
 function render() {
   const hasNumber = elements.dialNumber.textContent !== '—';
   elements.connectionPill.className = `status-pill ${state.connected ? 'online' : 'offline'}`;
@@ -264,6 +292,7 @@ elements.form.addEventListener('submit', async event => {
     const session = await Wazo.Auth.logIn(elements.username.value.trim(), elements.password.value);
     if (!session) throw new Error('Wazo did not return a valid session.');
     await Wazo.Phone.connect({ media: { audio: true, video: false } });
+    bindDirectIncomingEvents();
     await Wazo.Phone.phone.register();
     state.connected = true;
     state.connecting = false;
