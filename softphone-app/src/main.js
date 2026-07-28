@@ -11,6 +11,7 @@ const state = {
   call: null,
   incoming: false,
   muted: false,
+  held: false,
   status: 'Ready to connect',
 };
 
@@ -84,6 +85,7 @@ app.innerHTML = `
           <div class="call-actions">
             <button id="clear-button" class="round-button secondary" type="button" aria-label="Clear number" title="Clear number">${icon('delete', 22)}</button>
             <button id="call-button" class="round-button call" type="button" aria-label="Call" title="Call" disabled>${icon('phone', 25)}</button>
+            <button id="hold-button" class="round-button secondary" type="button" aria-label="Hold" title="Hold" disabled>${icon('pause', 22)}</button>
             <button id="mute-button" class="round-button secondary" type="button" aria-label="Mute" title="Mute" disabled>${icon('mic', 22)}</button>
           </div>
           <div id="incoming-actions" class="incoming-actions" hidden>
@@ -112,6 +114,7 @@ const elements = {
   callIcon: document.querySelector('#call-icon'),
   call: document.querySelector('#call-button'),
   clear: document.querySelector('#clear-button'),
+  hold: document.querySelector('#hold-button'),
   mute: document.querySelector('#mute-button'),
   incomingActions: document.querySelector('#incoming-actions'),
   answer: document.querySelector('#answer-button'),
@@ -145,6 +148,11 @@ function render() {
   elements.disconnect.hidden = !state.connected;
   elements.call.disabled = !state.connected || (!hasNumber && !state.call);
   elements.clear.disabled = !!state.call;
+  elements.hold.disabled = !state.call || state.incoming;
+  elements.hold.innerHTML = icon(state.held ? 'play' : 'pause', 22);
+  elements.hold.classList.toggle('active', state.held);
+  elements.hold.setAttribute('aria-label', state.held ? 'Resume' : 'Hold');
+  elements.hold.title = state.held ? 'Resume' : 'Hold';
   elements.mute.disabled = !state.call;
   elements.mute.innerHTML = icon(state.muted ? 'mic-off' : 'mic', 22);
   elements.mute.classList.toggle('active', state.muted);
@@ -188,6 +196,7 @@ function bindPhoneEvents() {
   on(Wazo.Phone.ON_CALL_ACCEPTED, callSession => {
     state.call = callSession;
     state.incoming = false;
+    state.held = false;
     elements.callKicker.textContent = 'Call connected';
     setStatus('Live call', 'success');
     render();
@@ -197,6 +206,18 @@ function bindPhoneEvents() {
   on(Wazo.Phone.ON_CALL_CANCELED, endCall);
   on(Wazo.Phone.ON_CALL_REJECTED, endCall);
   on(Wazo.Phone.ON_CALL_FAILED, (_call, error) => endCall(error));
+  on(Wazo.Phone.ON_CALL_HELD, () => {
+    state.held = true;
+    setStatus('Call on hold');
+    render();
+  });
+  const resumeCall = () => {
+    state.held = false;
+    setStatus('Live call', 'success');
+    render();
+  };
+  on(Wazo.Phone.ON_CALL_UNHELD, resumeCall);
+  on(Wazo.Phone.ON_CALL_RESUMED, resumeCall);
   on(Wazo.Phone.ON_CALL_ERROR, error => setStatus(readableError(error), 'error'));
   on(Wazo.Phone.ON_AUDIO_STREAM, stream => {
     remoteAudio.srcObject = stream;
@@ -208,6 +229,7 @@ function endCall(error) {
   state.call = null;
   state.incoming = false;
   state.muted = false;
+  state.held = false;
   elements.callKicker.textContent = 'Phone ready';
   elements.dialNumber.textContent = '—';
   setStatus(error instanceof Error ? readableError(error) : 'Call ended');
@@ -289,6 +311,16 @@ elements.mute.addEventListener('click', () => {
   render();
 });
 
+elements.hold.addEventListener('click', async () => {
+  if (!state.call || state.incoming) return;
+  try {
+    if (state.held) await Wazo.Phone.unhold(state.call);
+    else await Wazo.Phone.hold(state.call);
+  } catch (error) {
+    setStatus(readableError(error), 'error');
+  }
+});
+
 elements.answer.addEventListener('click', async () => {
   if (!state.call) return;
   try {
@@ -315,6 +347,7 @@ elements.disconnect.addEventListener('click', async () => {
     state.call = null;
     state.incoming = false;
     state.muted = false;
+    state.held = false;
     elements.callKicker.textContent = 'Phone idle';
     elements.dialNumber.textContent = '—';
     setStatus('Disconnected');
